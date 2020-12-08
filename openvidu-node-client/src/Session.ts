@@ -178,7 +178,45 @@ export class Session {
                 });
         });
     }
-
+    
+    public createIPCamConnection(connectionProperties?: ConnectionProperties): Promise<Connection> {
+        return new Promise<Connection>((resolve, reject) => {
+            const data = JSON.stringify({
+                type: (!!connectionProperties && !!connectionProperties.type) ? connectionProperties.type : null,
+                data: (!!connectionProperties && !!connectionProperties.data) ? connectionProperties.data : null,
+                rtspUri: (!!connectionProperties && !!connectionProperties.rtspUri) ? connectionProperties.rtspUri : null,
+                adaptativeBitrate: (!!connectionProperties && !!connectionProperties.adaptativeBitrate) ? connectionProperties.adaptativeBitrate : true,
+                onlyPlayWithSubscribers: (!!connectionProperties && !!connectionProperties.onlyPlayWithSubscribers) ? connectionProperties.onlyPlayWithSubscribers : true,
+                networkCache: (!!connectionProperties && !!connectionProperties.networkCache) ? connectionProperties.networkCache : 2000
+            });
+            axios.post(
+                this.ov.host + OpenVidu.API_SESSIONS + '/' + this.sessionId + '/connection',
+                data,
+                {
+                    headers: {
+                        'Authorization': this.ov.basicAuth,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            )
+                .then(res => {
+                    if (res.status === 200) {
+                        // SUCCESS response from openvidu-server. Store and resolve Connection
+                        const connection = new Connection(res.data);
+                        this.connections.push(connection);
+                        if (connection.status === 'active') {
+                            this.activeConnections.push(connection);
+                        }
+                        resolve(new Connection(res.data));
+                    } else {
+                        // ERROR response from openvidu-server. Resolve HTTP status
+                        reject(new Error(res.status.toString()));
+                    }
+                }).catch(error => {
+                    this.handleError(error, reject);
+                });
+        });
+    }
     /**
      * Gracefully closes the Session: unpublishes all streams and evicts every participant
      *
